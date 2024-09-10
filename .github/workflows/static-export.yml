@@ -37,6 +37,8 @@ jobs:
 
     - name: Install WP2Static plugin dependencies
       run: |
+        git clone https://github.com/leonstafford/wp2static.git
+        mv wp2static wp-content/plugins/wp2static
         cd wp-content/plugins/wp2static
         composer install
         npm install
