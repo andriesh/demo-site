@@ -11,10 +11,10 @@ jobs:
 
     services:
       mysql:
-        image: mysql:5.7  # You can adjust this to your preferred MySQL version
+        image: mysql:5.7  # Adjust to your preferred MySQL version
         env:
-          MYSQL_ROOT_PASSWORD: password  # Set root password
-          MYSQL_DATABASE: wordpress  # Create a default database for WordPress
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: wordpress
         ports:
           - 3306:3306
         options: >-
@@ -41,18 +41,19 @@ jobs:
       - name: Download WordPress and Set Up Database
         run: |
           wp core download
-          # Create wp-config.php file for MySQL
           wp config create --dbname=wordpress --dbuser=root --dbpass=password --dbhost=127.0.0.1 --dbprefix=wp_
-          # Wait for MySQL to be ready
           until mysqladmin ping -h 127.0.0.1 --silent; do echo "Waiting for MySQL..."; sleep 5; done
-          # Install WordPress
           wp core install --url="http://localhost" --title="Static WordPress" --admin_user="admin" --admin_password="password" --admin_email="admin@example.com"
 
       - name: Import Database Dump
         run: wp db import .dump/wp.sql
 
-      - name: Install WP2Static plugin
-        run: wp plugin install wp2static --activate
+      - name: Download and Install WP2Static
+        run: |
+          # Download wp2static manually from WordPress.org
+          curl -L https://downloads.wordpress.org/plugin/wp2static.latest-stable.zip -o wp2static.zip
+          unzip wp2static.zip -d wp-content/plugins
+          wp plugin activate wp2static
 
       - name: Generate static files
         run: wp wp2static generate
@@ -63,4 +64,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./wp-content/uploads/wp2static-processed-site
           publish_branch: gh-pages
-
