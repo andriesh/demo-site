@@ -1,73 +1,73 @@
-name: Generate and Deploy Static Pages
+name: Deploy WordPress Site
 
 on:
   push:
     branches:
-      - main  # Adjust to your main branch
+      - main
+  workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:5.7  # Adjust to your preferred MySQL version
-        env:
-          MYSQL_ROOT_PASSWORD: password
-          MYSQL_DATABASE: wordpress
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping --silent"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v2
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '7.4'
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.0' # Adjust PHP version if needed
 
-      - name: Install WP-CLI
-        run: |
-          curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-          chmod +x wp-cli.phar
-          sudo mv wp-cli.phar /usr/local/bin/wp
+    - name: Install Composer
+      run: |
+        curl -sS https://getcomposer.org/installer | php
+        sudo mv composer.phar /usr/local/bin/composer
 
-      - name: Download WordPress and Set Up Database
-        run: |
-          wp core download
-          wp config create --dbname=wordpress --dbuser=root --dbpass=password --dbhost=127.0.0.1 --dbprefix=wp_
-          until mysqladmin ping -h 127.0.0.1 --silent; do echo "Waiting for MySQL..."; sleep 5; done
-          wp core install --url="http://localhost" --title="Static WordPress" --admin_user="admin" --admin_password="password" --admin_email="admin@example.com"
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16' # Adjust Node.js version if needed
 
-      - name: Import Database Dump
-        run: wp db import .dump/wp.sql
+    - name: Install WP-CLI
+      run: |
+        curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+        chmod +x wp-cli.phar
+        sudo mv wp-cli.phar /usr/local/bin/wp
 
-      - name: Download and Install WP2Static Plugin from GitHub
-        run: |
-          # Download wp2static from GitHub releases
-          # curl -L https://github.com/WP2Static/wp2static/releases/latest/download/wp2static.zip -o wp2static.zip
-          curl -L https://github.com/elementor/wp2static/archive/refs/tags/7.2.zip -o wp2static.zip
-          # Check if the download was successful
-          if [ -f wp2static.zip ]; then
-            unzip wp2static.zip -d wp-content/plugins
-            wp plugin activate wp2static-7.2
-          else
-            echo "Failed to download wp2static.zip"
-            exit 1
-          fi
+    - name: Install WP2Static plugin dependencies
+      run: |
+        cd wp-content/plugins/wp2static
+        composer install
+        npm install
 
-      - name: Generate static files
-        run: wp wp2static generate
+    - name: Build WP2Static plugin
+      run: |
+        cd wp-content/plugins/wp2static
+        npm run build
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./wp-content/uploads/wp2static-processed-site
-          publish_branch: gh-pages
+    - name: Setup WordPress
+      run: |
+        wp core download --path=/var/www/html --locale=en_US
+        wp config create --path=/var/www/html --dbname=wordpress --dbuser=wp_user --dbpass=wp_pass --dbhost=localhost
+        wp core install --path=/var/www/html --url=https://example.com --title="WordPress Site" --admin_user=admin --admin_password=admin_password --admin_email=admin@example.com
+
+    - name: Install and Activate Plugins
+      run: |
+        wp plugin install wp2static --activate
+        wp plugin activate wp2static
+
+    - name: Deploy WordPress Site
+      run: |
+        # Run WP2Static to generate static files
+        wp2static generate
+
+    - name: Deploy Static Files to GitHub Pages
+      uses: actions/upload-artifact@v3
+      with:
+        name: static-files
+        path: /var/www/html/wp-content/uploads/wp2static/
+
+    - name: Clean Up
+      run: |
+        sudo rm -rf /var/www/html
