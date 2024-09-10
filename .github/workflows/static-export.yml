@@ -9,6 +9,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:5.7  # You can adjust this to your preferred MySQL version
+        env:
+          MYSQL_ROOT_PASSWORD: password  # Set root password
+          MYSQL_DATABASE: wordpress  # Create a default database for WordPress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 3
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -16,7 +30,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'  # Set PHP version according to your WordPress project requirements
+          php-version: '7.4'
 
       - name: Install WP-CLI
         run: |
@@ -24,11 +38,18 @@ jobs:
           chmod +x wp-cli.phar
           sudo mv wp-cli.phar /usr/local/bin/wp
 
-      - name: Set up WordPress
+      - name: Download WordPress and Set Up Database
         run: |
           wp core download
-          wp config create --dbname=wordpress --dbuser=root --dbpass= --dbhost=localhost --dbprefix=wp_
+          # Create wp-config.php file for MySQL
+          wp config create --dbname=wordpress --dbuser=root --dbpass=password --dbhost=127.0.0.1 --dbprefix=wp_
+          # Wait for MySQL to be ready
+          until mysqladmin ping -h 127.0.0.1 --silent; do echo "Waiting for MySQL..."; sleep 5; done
+          # Install WordPress
           wp core install --url="http://localhost" --title="Static WordPress" --admin_user="admin" --admin_password="password" --admin_email="admin@example.com"
+
+      - name: Import Database Dump
+        run: wp db import .dump/wp.sql
 
       - name: Install WP2Static plugin
         run: wp plugin install wp2static --activate
@@ -40,6 +61,6 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./wp-content/uploads/wp2static-processed-site  # Path to generated static files
+          publish_dir: ./wp-content/uploads/wp2static-processed-site
           publish_branch: gh-pages
 
