@@ -48,12 +48,19 @@ jobs:
       - name: Import Database Dump
         run: wp db import .dump/wp.sql
 
-      - name: Download and Install WP2Static
+      - name: Download and Install WP2Static Plugin from GitHub
         run: |
-          # Download wp2static manually from WordPress.org
-          curl -L https://downloads.wordpress.org/plugin/wp2static.latest-stable.zip -o wp2static.zip
-          unzip wp2static.zip -d wp-content/plugins
-          wp plugin activate wp2static
+          # Download wp2static from GitHub releases
+          # curl -L https://github.com/WP2Static/wp2static/releases/latest/download/wp2static.zip -o wp2static.zip
+          curl -L https://github.com/elementor/wp2static/archive/refs/tags/7.2.zip -o wp2static.zip
+          # Check if the download was successful
+          if [ -f wp2static.zip ]; then
+            unzip wp2static.zip -d wp-content/plugins
+            wp plugin activate wp2static
+          else
+            echo "Failed to download wp2static.zip"
+            exit 1
+          fi
 
       - name: Generate static files
         run: wp wp2static generate
