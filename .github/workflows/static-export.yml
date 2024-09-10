@@ -1,0 +1,43 @@
+name: Generate and Deploy Static Pages
+
+on:
+  push:
+    branches:
+      - main  # Adjust to your main branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'  # Set PHP version according to your WordPress project requirements
+          tools: composer
+
+      - name: Install WordPress dependencies
+        run: composer install
+
+      - name: Set up WordPress
+        run: |
+          # Configure your environment, database (you can use SQLite or MySQL)
+          wp core install --url="http://localhost" --title="Static WordPress" --admin_user="admin" --admin_password="password" --admin_email="admin@example.com"
+          # Add additional setup steps for plugins, themes, etc.
+      
+      - name: Install WP2Static plugin
+        run: wp plugin install wp2static --activate
+
+      - name: Generate static files
+        run: wp wp2static generate
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./wp-content/uploads/wp2static-processed-site  # Path to generated static files
+          publish_branch: gh-pages
+
