@@ -19,9 +19,6 @@ jobs:
           php-version: '7.4'  # Set PHP version according to your WordPress project requirements
           tools: composer
 
-      - name: Install WordPress dependencies
-        run: composer install
-
       - name: Set up WordPress
         run: |
           # Configure your environment, database (you can use SQLite or MySQL)
